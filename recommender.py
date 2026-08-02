@@ -1,3 +1,6 @@
+'''Recommender Model Architecture'''
+
+
 import joblib as jl
 import numpy as np
 import pandas as pd 
@@ -71,7 +74,7 @@ class TiburonBookRecommender:
             sublinear_tf=True
         )
 
-        # creates an M x N matrix, where M represents the book titles and N represents each word comprising the title
+        # creates an M x N matrix, where M represents the book titles and N represents the vocabulary across the corpus
         # .fit_transform also returns a sparse matrix of non-zeros, optimizing for memory conservation
         matrix = self.vectorizer.fit_transform(soup)
 
@@ -96,7 +99,7 @@ class TiburonBookRecommender:
         '''Returns the k books whose text is most similar to query, best first'''
 
         if self.vectorizer is None:
-            raise RuntimeError(f'Model is not fit...Please run .fit() or .load() prior to retrieving recommendations')
+            raise RuntimeError('Model is not fit...Please run .fit() or .load() prior to retrieving recommendations')
 
         query_vector = self.vectorizer.transform([query])
 

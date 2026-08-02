@@ -1,3 +1,5 @@
+'''Pipeline Architecture'''
+
 import pandas as pd 
 import time
 

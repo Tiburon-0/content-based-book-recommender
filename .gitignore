@@ -3,4 +3,10 @@ __pycache__/
 *.pyc 
 *.csv 
 *.pkl 
-claude_output/ 
+claude_output/
+final_project_instructions.ipynb
+Dockerfile
+Makefile
+main.py
+/smoke_test_*.png
+app.py 
