@@ -10,3 +10,4 @@ Makefile
 main.py
 /smoke_test_*.png
 app.py 
+wandb/
