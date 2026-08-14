@@ -82,6 +82,9 @@
 
 Promotional decisions are currently rooted in time and space complexity, *cost optimization* (e.g., vocabulary size, model size, latency), pending development of the evaluation harness. So, the structuring enables seamless rollback and shifts in promotion necessitated by various business needs, shifts in priority balance (speed vs. accuracy).
 
+
+Project Dashboard: [wandb.ai/tiburon_0-university-of-denver/content-based-book-recommender?nw=nwusertiburon_0](https://wandb.ai/tiburon_0-university-of-denver/content-based-book-recommender?nw=nwusertiburon_0)
+
 ---
 
 ## Installation
