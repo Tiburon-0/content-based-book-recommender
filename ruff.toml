@@ -32,3 +32,16 @@ ignore = [
 # tests reach into internals on purpose -- _build_soup is private and the fixtures
 # rebind module-level names
 "tests/*" = ["B011"]
+
+[lint.isort]
+# wandb is a THIRD-PARTY package -- say so explicitly
+#
+# isort decides first-party vs third-party by checking what exists on disk.
+# locally a wandb/ run-cache directory sits in the project root, so ruff read
+# `import wandb` as one of our own modules and wanted it grouped with db and
+# recommender. on a clean ci checkout wandb/ is gitignored and absent, so ruff
+# read it as third-party and wanted it grouped with numpy and fastapi.
+#
+# same file, same ruff version, opposite verdicts -- because the two machines
+# had different directories lying around. declaring it removes the guesswork.
+known-third-party = ["wandb"]
