@@ -7,7 +7,14 @@ uvicorn
 # needed to unpickle, not to train
 # the saved model holds a fitted TfidfVectorizer and a scipy sparse matrix,
 # so those classes have to be importable at load time
-scikit-learn
+#
+# PINNED to the version the model was trained on. unpinned, the EC2 build
+# installed 1.9.0 against a model pickled with 1.6.1 and sklearn warned:
+#   InconsistentVersionWarning: Trying to unpickle estimator TfidfVectorizer
+#   from version 1.6.1 when using version 1.9.0
+# results were still correct here, but sklearn makes no guarantee across
+# versions -- the environment is part of the model, not just the artifact
+scikit-learn==1.6.1
 scipy
 numpy
 pandas
