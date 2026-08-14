@@ -4,9 +4,10 @@
 
 ### `recommender.py`
 
-* **Model Requirements**: This recommender system is a [content-based filtering model](https://www.geeksforgeeks.org/machine-learning/ml-content-based-recommender-system/). Though [collaborative-filtering (CF)](https://www.geeksforgeeks.org/machine-learning/collaborative-filtering-ml/) holds strong in situations during which user profiles already exist and share similar patterns in taste, the CF approach suffers from the *cold start* limitation (i.e. interactions from new users who do not have established history). By contrast, content-based filtering (CBF) is built on existing item metadata and features, making it the optimal choice for individuals who may not have established history.
+* **Model Requirements**: This recommender system is a [content-based filtering model](https://www.geeksforgeeks.org/machine-learning/ml-content-based-recommender-system/). Though [collaborative-filtering (CF)](https://www.geeksforgeeks.org/machine-learning/collaborative-filtering-ml/) holds strong in situations in which user profiles already exist and share similar patterns in taste, the CF approach suffers from the *cold start* limitation (i.e. interactions from new users who do not have established history). By contrast, content-based filtering (CBF) is built on existing item metadata and features, making it the optimal choice for individuals who may not have established history.
   Implementation of two steps: *retrieval* and *ranking*
   * *Retrieval*: generate--retrieve--title candidates for each mentioned title
+    * tests [clamping](https://www.geeksforgeeks.org/python/how-to-clamp-floating-numbers-in-python/) for *k* value
   * *Ranking*: rank those candidates, remove duplicates or consumed-titles
 
 ### `train_model.py`
@@ -19,14 +20,67 @@
 * **Model Training**: *Text frequency-inverse document frequency (TF-IDF)* - vectorizes the text; the corpus is represented as an M x N matrix. The number of titles (M) may differ from size of vocabulary (N); however, the size of the vector computed from each
   vectorized query (i.e., an 1 x N) must be compatible for matrix-vector multiplication to produce a dot product. Thus, the vector will be transposed to dimensions N x 1 to produce the dot product of M x 1, in which each title will have a score.
   Titles that are closer together in vector space will have a larger dot product or cosine similarity score. Titles are then sorted in descending order according to their scores so that similar titles are served based on the specified *k*.
-
-### [Weights and Biases](https://wandb.ai/tiburon_0-university-of-denver/projects)
-
 * **Model Evaluation**: When building some recommendations (e.g., *You Might Like*, *Because You Viewed*, *For You*, etc.), the goal is to minimize the distance from a user's favorite title to another title, expressed as ||vt^k - vt^i||. This model uses a leave-one-out with precision@k evaluation method: consider users with 5+ liked titles, hide one title, build a query from the rest, evaluate whether the hidden book returns. Use W&B to sweep across `max_features` and `min_df` hyperparameters--strikes the balance between *memory* and *precision*.
+
+  * Unittests:
+    * `test_recommender.py`
+      * `TestRecommenderFitting`
+      * `TestRecommenderRetrieval`
+      * `TestRecommenderSaveLoad`
+    * test_api.py
+      * `TestEndpointsWithoutModel`
+      * `TestEndpointsWithModel`
+      * `TestRequestValidation`
 
 ### Docker | Amazon Web Services
 
 * **Model Deployment / Model Monitoring**: *Docker* containerization for environmental consistency and accessibility; *Amazon Elastic Compute Cloud* for deployment and monitoring
+* NoSQL Cloud Database (DynamoDB):
+
+  * Low-latency
+  * Flexible
+  * Automatic scalability
+  * High Availability & Durability
+
+### `create_table.py`
+
+* DynamoDB Implementation:
+  * For this project, one key scans several thousand items (i.e., retrieval logs). Scale would demand implementation of a composite key (partition key: `"PRED#2026-08-07",`sort key: `"2026-08-07T13:22:01Z#<uuid>")`for targeted queries. **Tradeoff**: The simple, single key is optimal for the project at hand. A composite key adds unnecessary complexity.
+  * Timezone in UTC for agnostic time-tracking
+  * Function as a Service (FaaS) - Only pay for what is used
+
+### `main.py`
+
+* Houses the fastAPI layer, which loads the Production model from the Registry
+* Pydantic schemas for user TextInput validation
+* Provides several endpoints:
+  * / - returns the artifact
+  * /health - confirms API functionality
+  * /retrieve - retrieves a specified number of recommendations *k* from a single query
+  * /retrieve_from_queries - retrieves a specified number of recommendations *k* from multiple queries
+  * /example - provides example of retrieval functionality by returning a random title from the catalog
+
+## [Weights and Biases](https://wandb.ai/tiburon_0-university-of-denver/projects)
+
+### `promote_model.py`
+
+**Linking**:
+
+* **Supports model lifecycle management & scope promotion**:
+
+  * Enables CLI staging and promotion of model artifacts in the *Registry* (i.e., --list, --alias production)
+* **Supports data lineage**:
+
+  * Alias acts as mutable pointer, enabling changes in production without redeploying the highest-performing artifact.
+    * **Importance**: Respects possibility of **model degradation**, **concept drift**, and **data drift**
+* **Provides naming consistency for artifacts**:
+
+  * **entity**: *tiburon_0-university-of-denver*
+  * **project**: *content-based-book-recommender*
+  * **artifact & version**: *tiburon-book-recommender:version*
+  * **Project Namespace**: *tiburon_0-university-of-denver/content-based-book-recommender/tiburon-book-recommender:v1*)
+
+Promotional decisions are currently rooted in time and space complexity, *cost optimization* (e.g., vocabulary size, model size, latency), pending development of the evaluation harness. So, the structuring enables seamless rollback and shifts in promotion necessitated by various business needs, shifts in priority balance (speed vs. accuracy).
 
 ---
 
@@ -48,7 +102,7 @@ Example output:
 ## Design Considerations
 
 * *Relevance*: A user might solely enter their favorite titles, or they might convey their taste using prose. Titles are presented in descending order based on their ranks, which are also provided.
-* *Freshness*: The catalog is frozen at training time, so new books would necessitate retraining. The 'publishedDate' feature is also dropped, restricting inference of recency.
+* *Freshness*: The catalog is frozen at training time--preventing data drift--so new books would necessitate retraining. The 'publishedDate' feature is also dropped, restricting inference of recency.
 * *Latency*: During the initial data cleaning process, 78% of the titles were dropped due to null values across several of the fields, reducing the dataset to 47,797 titles. After applying a more structured cleaning approach, the dataset regained a significant portion of its size, recouping 165,744 titles. Thus, the model's vocabulary grew to 1,240,874 terms, with non-zero terms growing from 2.46M to 12.7M. Serving costs ~85 ms per query, of which the sparse matrix-vector product consumes 79 ms. Thus, a 3.5x larger catalog produced an 8x slower query.
 * *Diversity*: Impacted by duplicate titles with diverse casing, as exhibited in the smoke test. ('Now Wait *for* Last Year' vs. 'Now Wait *For* Last Year'). Additionally, multiple books by the same author restricts diversity. Tuning the `ngram_range` hyperparameter to (1, 2) accounts for authors with shared given or surnames (bigrams).
 * *Fairness*: Some recommender systems are biased toward certain outputs (e.g., books, ads, movies, etc.) due to financial incentive. Despite there being no financial incentive to show preference toward certain titles, this model differs in that recommendations with higher rating weights are probable to be served more frequently--meaning the books with lower ratings have a lower probability of being served, keeping their ratings low. This is referred to as a *popularity feedback loop*.

@@ -1,0 +1,65 @@
+# ci (phase 4.2) -- lint and tests on every pull request to main
+#
+# this file covers the linter and the test suite
+# BLOCKING the merge is a repo setting, not a workflow setting, and is easy to miss:
+#   Settings -> Branches -> Add branch ruleset
+#   target main, require status checks, add "lint" and "test"
+# without it the checks still run and still show red, but merge stays enabled
+# screenshot that settings page for the submission
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+  # also on direct pushes to main so the readme badge reflects main, not just PRs
+  push:
+    branches: [main]
+
+jobs:
+
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # matches the dockerfiles
+
+      - name: Install ruff
+        run: pip install ruff
+
+      # config lives in ruff.toml at the repo root, so ci enforces the same rules
+      # you get from `ruff check .` locally
+      - name: Run ruff
+        run: ruff check .
+
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      # the api requirements are the superset the tests need, plus two test-only packages
+      # httpx is not optional -- fastapi's TestClient is built on it, and without it
+      # every integration test errors at import without mentioning httpx
+      - name: Install dependencies
+        run: |
+          pip install -r api/requirements.txt
+          pip install pytest httpx
+
+      # no secrets configured on purpose
+      # conftest blocks wandb.Api, the db functions are faked, the catalog is written
+      # by hand -- if a test starts needing a credential, fix the test, do not add a secret
+      - name: Run pytest
+        run: pytest

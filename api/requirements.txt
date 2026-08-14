@@ -1,0 +1,20 @@
+# api image only -- the frontend and dashboard have their own files
+# keeps sklearn and wandb (~400 MB) out of the two images that never load a model
+
+fastapi
+uvicorn
+
+# needed to unpickle, not to train
+# the saved model holds a fitted TfidfVectorizer and a scipy sparse matrix,
+# so those classes have to be importable at load time
+scikit-learn
+scipy
+numpy
+pandas
+joblib
+
+# registry pull at startup
+wandb
+
+# retrieval logging
+boto3

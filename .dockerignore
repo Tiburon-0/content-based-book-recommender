@@ -1,0 +1,40 @@
+# all three images build from the project root so api/ can copy recommender.py
+# and db.py without keeping duplicate copies of them
+# the cost is that docker uploads the whole root as build context first --
+# this file is what keeps 3+ GB of CSVs out of that
+
+# datasets -- training runs locally, never in an image
+*.csv
+
+# model artifacts -- the api pulls from the w&b registry at startup, not from disk
+*.pkl
+artifacts/
+wandb/
+
+# secrets -- passed with -e or mounted at run time
+.env
+.aws/
+credentials
+*.pem
+
+# git and python noise
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# reference material, not shipped
+claude_output/
+final_project_instructions.ipynb
+CLAUDE.md
+
+# docs and screenshots -- read on github, not inside a container
+assets/
+*.png
+README.md
+DEPLOYMENT.md
+
+# tests run in ci and locally, not in the production images
+tests/

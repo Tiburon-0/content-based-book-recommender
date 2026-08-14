@@ -3,9 +3,9 @@
 
 import joblib as jl
 import numpy as np
-import pandas as pd 
-
+import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
+
 
 class TiburonBookRecommender:
     '''Recommends books by text similarity based on user taste description'''
@@ -27,7 +27,7 @@ class TiburonBookRecommender:
         # users might express interest in topics e.g., machine learning or artificial intelligence
         # authors might also share given names or surnames
         # two-word phrases help with precision but compound vocabulary size
-        self.ngram_range = ngram_range 
+        self.ngram_range = ngram_range
 
         self.vectorizer = None # the fitted TFIDFVectorizer (vocabulary + IDF weights)
         self.matrix = None # sparse matrix: one row per book, one column per term
@@ -44,7 +44,7 @@ class TiburonBookRecommender:
 
         for field in self.text_fields[1:]:
 
-            # ' ' acts as a separator so words do not fuse between fields 
+            # ' ' acts as a separator so words do not fuse between fields
             soup = soup + ' ' + dataframe[field].fillna('').astype(str)
 
         return soup
@@ -53,7 +53,7 @@ class TiburonBookRecommender:
         '''Learns the vocabulary and builds the catalog's document matrix'''
 
         # Operationally, 'fitting' means scan every book, decide the composing vocabulary terms (TF),
-        # compute each term's IDF weight, then express every book as a vector over that vocabulary. 
+        # compute each term's IDF weight, then express every book as a vector over that vocabulary.
         # Represents an unsupervised transformation of text into numbers
 
         soup = self._build_soup(dataframe)
@@ -70,7 +70,7 @@ class TiburonBookRecommender:
             # accounts for international authors with accent marks
             strip_accents='unicode',
 
-            # prevents dominant words (i.e., more frequently occuring words) from skewing the analysis 
+            # prevents dominant words (i.e., more frequently occuring words) from skewing the analysis
             sublinear_tf=True
         )
 
@@ -78,7 +78,7 @@ class TiburonBookRecommender:
         # .fit_transform also returns a sparse matrix of non-zeros, optimizing for memory conservation
         matrix = self.vectorizer.fit_transform(soup)
 
-        # conversion of values from float64 to float32 
+        # conversion of values from float64 to float32
         # saving the matrix while further optimizing for memory
         self.matrix = matrix.astype(np.float32)
 
@@ -139,9 +139,9 @@ class TiburonBookRecommender:
 
         return jl.load(path)
 
-        
 
-        
+
+
 
 
 

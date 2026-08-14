@@ -1,0 +1,10 @@
+# no model, no sklearn, no wandb -- this instance never loads the recommender
+# which is why t2.micro is fine here and probably is not for the api
+
+# pinned for the same reason as the frontend -- 1.49 changed the width idiom
+streamlit==1.45.1
+pandas
+boto3
+
+# charts that need an explicit axis, sort order, or a second series
+altair

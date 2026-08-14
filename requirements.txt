@@ -3,3 +3,8 @@ scikit-learn
 numpy
 joblib 
 wandb
+pytest 
+httpx 
+uvicorn
+fastapi
+boto3

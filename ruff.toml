@@ -1,0 +1,34 @@
+# the linter ci runs on every pull request
+# spec names "flake8 or ruff" -- ruff is one binary, no plugins, runs in under a second
+
+line-length = 120
+
+exclude = [
+    "claude_output",
+    "wandb",
+    "artifacts",
+    ".venv",
+]
+
+[lint]
+# E/W pycodestyle, F pyflakes, I import order, B common bugs
+# F is the one that catches real defects: undefined names, unused imports,
+# f-strings with no placeholders
+#
+# UP (pyupgrade) is deliberately NOT enabled
+# it rewrites typing.List -> list and similar, which is a style preference, not a
+# defect -- the linter is here to catch mistakes, not to restyle working code
+select = ["E", "W", "F", "I", "B"]
+
+ignore = [
+    # line-length above already sets the boundary
+    "E501",
+    # function call in a default argument -- this is the normal Depends()/Field()
+    # idiom in fastapi, so flagging it would be wrong here
+    "B008",
+]
+
+[lint.per-file-ignores]
+# tests reach into internals on purpose -- _build_soup is private and the fixtures
+# rebind module-level names
+"tests/*" = ["B011"]

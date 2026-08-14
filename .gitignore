@@ -1,13 +1,47 @@
-__pycache__/
+# --------[SECRETS]--------
 .env
-*.pyc 
-*.csv 
-*.pkl 
-claude_output/
-final_project_instructions.ipynb
-Dockerfile
-Makefile
-main.py
-/smoke_test_*.png
-app.py 
+.aws/
+credentials
+*.pem
+
+# --------[DATA]--------
+# 181 MB and 2.86 GB, both past github's 100 MB per-file limit
+*.csv
+
+# --------[MODEL ARTIFACTS]--------
+# the model lives in the w&b registry, not in git
+*.pkl
+artifacts/
 wandb/
+
+# --------[PYTHON NOISE]--------
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# --------[REFERENCE MATERIAL]--------
+final_project_instructions.ipynb
+claude_output/
+CLAUDE.md
+
+# --------[ROOT-ONLY SCREENSHOT COPIES]--------
+# leading slash on purpose -- the assets/ duplicates are tracked because
+# README.md embeds them as assets/smoke_test_1-1.png
+/smoke_test_*.png
+
+
+# removed 2026-08-13: Dockerfile, Makefile, main.py, app.py
+#
+# these were ignored while unfinished so the public repo showed only finished work
+# they are graded deliverables now, so they have to be committed
+#
+# two traps, both silent:
+#   1. a pattern with NO SLASH matches at EVERY depth
+#      `Dockerfile` also hid api/Dockerfile, web/Dockerfile, monitoring/Dockerfile
+#      `app.py` also hid web/app.py and monitoring/app.py
+#      committing with those rules would have published a repo with no application in it
+#   2. git status says nothing about ignored files -- they are not untracked, so
+#      nothing warns you
+#      check with:  git status --ignored --short
+#                   git check-ignore -v <path>

@@ -1,0 +1,6 @@
+# pinned deliberately -- 1.49 replaced use_container_width= with width='stretch'
+# an unpinned rebuild on deploy day would silently break the idioms in app.py
+streamlit==1.45.1
+
+# talks to the api over http, nothing else
+requests

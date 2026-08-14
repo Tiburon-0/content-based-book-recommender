@@ -1,13 +1,13 @@
 '''Pipeline Architecture'''
 
-import pandas as pd 
 import time
+from pathlib import Path
+
+import pandas as pd
 
 # experiment tracking
 import wandb
-
-from pathlib import Path
-
+from promote_model import REGISTRY_PATH
 from recommender import TiburonBookRecommender
 
 BOOKS_DATASET = 'books_data.csv'
@@ -19,19 +19,19 @@ REQUIRED_FIELDS = ('Title', 'authors', 'categories')
 def load_and_preprocess(file, required_fields=REQUIRED_FIELDS):
     '''Loads dataset, cleans dataset, ands provides shape of cleaned dataset before saving'''
 
-    print(f'Loading dataset')
+    print('Loading dataset')
     dataframe = pd.read_csv(Path(__file__).parent / file, usecols=CATALOG_COLUMNS)
-    print(f'Dataset loaded')
+    print('Dataset loaded')
 
     print(f'Peek at loaded data: \n {dataframe.head(10)}')
     pre_drop_size = dataframe.shape[0]
     print(f'This dataset holds {pre_drop_size} titles, each with {dataframe.shape[1]} features.')
 
-    print(f'Assessing missing values...')
+    print('Assessing missing values...')
     print(f'Missing val count: \n {dataframe.isnull().sum()}')
     print(f'Missing val percentage: \n {(dataframe.isnull().sum() / len(dataframe)) * 100}')
 
-    print(f'Cleaning data...')
+    print('Cleaning data...')
 
     # required_fields cannot be null for sake of dataset integrity
     dataframe = dataframe.dropna(subset=list(required_fields)).reset_index(drop=True)
@@ -50,11 +50,11 @@ def train_model(library, max_features=None, min_df=2, ngram_range=(1, 2)):
         ngram_range=ngram_range
     )
 
-    print(f'Training the model...')
+    print('Training the model...')
 
     recommender.fit(library)
 
-    print(f'Model trained.')
+    print('Model trained.')
 
     return recommender
 
@@ -63,7 +63,7 @@ def save_model(trained_model, file_name):
 
     path = Path(__file__).parent / file_name
 
-    print(f'Saving the model...')
+    print('Saving the model...')
 
     trained_model.save(path)
 
@@ -88,18 +88,22 @@ def smoke_test(trained_model, query='a gripping true crime novel'):
     print(f'Query latency: {smoke_test_query_latency_ms:.1f} ms')
 
     return smoke_test_query_latency_ms
-          
-def run_pipeline(data, saved_file_name='tiburon_book_recommendation_model.pkl', 
+
+def run_pipeline(data=BOOKS_DATASET, saved_file_name='tiburon_book_recommendation_model.pkl',
                  required_fields=REQUIRED_FIELDS, **config):
     '''Loads and preprocesses the data, trains the model, and saves the trained model'''
 
     pipeline_start_time = time.time()
 
-    print(f'Running pipeline...')
+    print('Running pipeline...')
 
-    with wandb.init(entity="tiburon_0-university-of-denver", 
+    with wandb.init(entity="tiburon_0-university-of-denver",
                     project="content-based-book-recommender",
                     config=config) as run:
+
+        data_artifact = wandb.Artifact(name='books-data', type='dataset')
+        data_artifact.add_reference((Path(__file__).parent / data).as_uri())
+        run.log_artifact(data_artifact)
 
         df = load_and_preprocess(data, required_fields=required_fields)
 
@@ -129,11 +133,18 @@ def run_pipeline(data, saved_file_name='tiburon_book_recommendation_model.pkl',
             },
         )
         artifact.add_file(str(path))
-        run.log_artifact(artifact)
+
+        logged_artifact = run.log_artifact(artifact)
+
+        logged_artifact.wait()
+
+        logged_artifact.link(target_path=REGISTRY_PATH, aliases=['staging'])
+
+        print(f'Linked to registry: {REGISTRY_PATH}:staging')
 
         smoke_test_query_latency = smoke_test(recommendation_model)
 
-        pipeline_end_time = time.time()        
+        pipeline_end_time = time.time()
 
         run.log({
             'catalog_size': len(df),
@@ -148,7 +159,7 @@ def run_pipeline(data, saved_file_name='tiburon_book_recommendation_model.pkl',
 
         print(f'Pipeline Completion Time: {pipeline_end_time - pipeline_start_time:.2f} s')
 
-    return f'Pipeline complete.'
+    return 'Pipeline complete.'
 
 if __name__ == '__main__':
     print(run_pipeline(BOOKS_DATASET))
