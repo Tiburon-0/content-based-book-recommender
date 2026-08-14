@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
+import wandb
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 
-import wandb
 from db import log_retrieval, record_feedback
 from recommender import TiburonBookRecommender
 

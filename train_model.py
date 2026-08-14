@@ -7,6 +7,7 @@ import pandas as pd
 
 # experiment tracking
 import wandb
+
 from promote_model import REGISTRY_PATH
 from recommender import TiburonBookRecommender
 
