@@ -1,14 +1,6 @@
 # three images, two ec2 instances
-#
-#   APP HOST                      MONITORING HOST
-#     api  :8000  --+               dash :8501
-#     web  :8501  --+ app_net           |
-#           +---- writes --> DynamoDB <-+ reads
-#
-# no shared volume anywhere
-# assignment 5 passed a json file between containers through a named volume, but
-# volumes do not span hosts -- the two services here sit on different machines,
-# so dynamodb is the shared state
+# volumes do not span hosts 
+# the two services here sit on different machines, so dynamodb is the shared state
 #
 # run targets are split by host because make cannot start a container on a
 # machine it is not running on: run-app on instance 1, run-dash on instance 2
@@ -29,7 +21,6 @@ API_URL ?= http://api:8000
 
 # lab accounts usually cannot create iam roles, so the containers read the
 # credentials file mounted from the host
-# if you can attach an instance role instead, do that and delete this line
 AWS_MOUNT := -v $(HOME)/.aws:/root/.aws:ro
 
 .PHONY: build build-api build-web build-dash \
@@ -95,7 +86,6 @@ run-dash: stop-dash
 #
 # nothing here touches dynamodb -- the retrieval history survives teardown,
 # instance restart, and the end of a lab session
-# assignment 5's make clean destroyed the volume and every logged prediction
 
 stop-app:
 	-docker rm -f api web
