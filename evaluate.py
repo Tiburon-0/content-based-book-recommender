@@ -38,7 +38,6 @@ LIKED_THRESHOLD = 4
 MIN_LIKED = 5
 MAX_LIKED = 50
 
-
 def normalize_title(titles):
     '''Lowercases and collapses whitespace/punctuation so titles join across files'''
 

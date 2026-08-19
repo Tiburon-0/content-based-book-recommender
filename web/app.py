@@ -2,10 +2,9 @@
 
 # this is the app a reader touches, not the monitoring dashboard
 # it is a pure http client of the api: no model, no .pkl, no dynamodb
-#
 # the feedback loop:
 #   POST /retrieve  -> api runs the model, writes a row to dynamodb, returns its id
-#   we hold that id in session_state
+#   hold that id in session_state
 #   POST /feedback  -> api updates that same row with helpful=True/False
 #   the dashboard reads those rows and computes live accuracy
 
