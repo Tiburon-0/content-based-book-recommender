@@ -1,91 +1,5 @@
 # Machine Learning Book Recommendation System Using Content-Based Filtering
 
-## Machine Learning Pipeline
-
-### `recommender.py`
-
-* **Model Requirements**: This recommender system is a [content-based filtering model](https://www.geeksforgeeks.org/machine-learning/ml-content-based-recommender-system/). Though [collaborative-filtering (CF)](https://www.geeksforgeeks.org/machine-learning/collaborative-filtering-ml/) holds strong in situations in which user profiles already exist and share similar patterns in taste, the CF approach suffers from the *cold start* limitation (i.e. interactions from new users who do not have established history). By contrast, content-based filtering (CBF) is built on existing item metadata and features, making it the optimal choice for individuals who may not have established history.
-  Implementation of two steps: *retrieval* and *ranking*
-  * *Retrieval*: generate--retrieve--title candidates for each mentioned title
-    * tests [clamping](https://www.geeksforgeeks.org/python/how-to-clamp-floating-numbers-in-python/) for *k* value
-  * *Ranking*: rank those candidates, remove duplicates or consumed-titles
-
-### `train_model.py`
-
-* **Data Collection**: Ingests data (`Amazon Books Dataset: books_data.csv`)
-* **Data Cleaning/Feature Engineering**: Dropping nulls using `load_and_preprocess()`
-* **Data Labeling**: N/A - this is an unsupervised learning model
-* **Feature Selection**: Loading data: only load the used features (i.e., 'Title', 'description', 'authors', 'categories', 'ratingsCount', 'image'). The remaining features (i.e., previewLink, publisher, publishedDate, and infoLink) are noise.  This helps
-  streamline data parsing and cleaning, as well as storage management.
-* **Model Training**: *Text frequency-inverse document frequency (TF-IDF)* - vectorizes the text; the corpus is represented as an M x N matrix. The number of titles (M) may differ from size of vocabulary (N); however, the size of the vector computed from each
-  vectorized query (i.e., an 1 x N) must be compatible for matrix-vector multiplication to produce a dot product. Thus, the vector will be transposed to dimensions N x 1 to produce the dot product of M x 1, in which each title will have a score.
-  Titles that are closer together in vector space will have a larger dot product or cosine similarity score. Titles are then sorted in descending order according to their scores so that similar titles are served based on the specified *k*.
-* **Model Evaluation**: When building some recommendations (e.g., *You Might Like*, *Because You Viewed*, *For You*, etc.), the goal is to minimize the distance from a user's favorite title to another title, expressed as ||vt^k - vt^i||. This model uses a leave-one-out with precision@k evaluation method: consider users with 5+ liked titles, hide one title, build a query from the rest, evaluate whether the hidden book returns. Use W&B to sweep across `max_features` and `min_df` hyperparameters--strikes the balance between *memory* and *precision*.
-  * Unittests:
-    * `test_recommender.py`
-      * `TestRecommenderFitting`
-      * `TestRecommenderRetrieval`
-      * `TestRecommenderSaveLoad`
-    * test_api.py
-      * `TestEndpointsWithoutModel`
-      * `TestEndpointsWithModel`
-      * `TestRequestValidation`
-
-### Docker | Amazon Web Services
-
-* **Model Deployment / Model Monitoring**: *Docker* containerization for environmental consistency and accessibility; *Amazon Elastic Compute Cloud* for deployment and monitoring
-* NoSQL Cloud Database (DynamoDB):
-
-  * Low-latency
-  * Flexible
-  * Automatic scalability
-  * High Availability & Durability
-
-### `create_table.py`
-
-* DynamoDB Implementation:
-  * For this project, one key scans several thousand items (i.e., retrieval logs). Scale would demand implementation of a composite key (partition key: `"PRED#2026-08-07",`sort key: `"2026-08-07T13:22:01Z#<uuid>")`for targeted queries. **Tradeoff**: The simple, single key is optimal for the project at hand. A composite key adds unnecessary complexity.
-  * Timezone in UTC for agnostic time-tracking
-  * Function as a Service (FaaS) - Only pay for what is used
-
-### `main.py`
-
-* Houses the fastAPI layer, which loads the Production model from the Registry
-* Pydantic schemas for user TextInput validation
-* Provides several endpoints:
-  * `/` - returns the artifact
-  * `/health` - confirms API functionality
-  * `/retrieve` - retrieves a specified number of recommendations *k* from a single query
-  * `/retrieve_from_queries` - retrieves a specified number of recommendations *k* from multiple queries
-  * `/feedback` - attaches thumbs up/down to retrievals logged by `/retrieve` endpoint
-  * `/example` - provides example of retrieval functionality by returning a random title from the catalog
-
-## [Weights and Biases](https://wandb.ai/tiburon_0-university-of-denver/projects)
-
-### `promote_model.py`
-
-**Linking**:
-
-* **Supports model lifecycle management & scope promotion**:
-
-  * Enables CLI staging and promotion of model artifacts in the *Registry* (i.e., --list, --alias production)
-* **Supports data lineage**:
-
-  * Alias acts as mutable pointer, enabling changes in production without redeploying the highest-performing artifact.
-    * **Importance**: Respects possibility of **model degradation**, **concept drift**, and **data drift**
-* **Provides naming consistency for artifacts**:
-
-  * **entity**: *tiburon_0-university-of-denver*
-  * **project**: *content-based-book-recommender*
-  * **artifact & version**: *tiburon-book-recommender:version*
-  * **Project Namespace**: *tiburon_0-university-of-denver/content-based-book-recommender/tiburon-book-recommender:v1*)
-
-Promotional decisions are currently rooted in time and space complexity, *cost optimization* (e.g., vocabulary size, model size, latency), pending development of the evaluation harness. So, the structuring enables seamless rollback and shifts in promotion necessitated by various business needs, shifts in priority balance (speed vs. accuracy).
-
-Weights and Biases Project Dashboard: [wandb.ai/tiburon_0-university-of-denver/content-based-book-recommender?nw=nwusertiburon_0](https://wandb.ai/tiburon_0-university-of-denver/content-based-book-recommender?nw=nwusertiburon_0)
-
----
-
 ## System Architecture
 
 Three containerized services across two EC2 instances. The two hosts never communicate directly; DynamoDB is the only shared state.
@@ -112,13 +26,162 @@ Three containerized services across two EC2 instances. The two hosts never commu
              W&B Model Registry
 ```
 
+## Machine Learning Pipeline
+
+### `recommender.py`
+
+* **Model Requirements**: This recommender system is a [content-based filtering model](https://www.geeksforgeeks.org/machine-learning/ml-content-based-recommender-system/). Though [collaborative-filtering (CF)](https://www.geeksforgeeks.org/machine-learning/collaborative-filtering-ml/) holds strong in situations in which user profiles already exist and share similar patterns in taste, the CF approach suffers from the *cold start* limitation (i.e. interactions from new users who do not have established history). By contrast, content-based filtering (CBF) is built on existing item metadata and features, making it the optimal choice for individuals who may not have established history.
+  Implementation of two steps: *retrieval* and *ranking*
+  * *Retrieval*: generate--retrieve--title candidates for each mentioned title
+    * tests [clamping](https://www.geeksforgeeks.org/python/how-to-clamp-floating-numbers-in-python/) for *k* value
+  * *Ranking*: rank those candidates, remove duplicates or consumed-titles
+
+### `train_model.py`
+
+Loads the catalog, drops rows missing `Title` / `authors` / `categories`, fits TF-IDF over the concatenated text fields, saves the pickle, logs the run and artifact to W&B, links that artifact into the registry as `staging`, then runs a smoke test. Roughly 40 seconds.
+
+Example output:
+
+* ![smoke test eda](assets/deployment_outputs/smoke_tests/smoke_test_1-1.png)
+* ![smoke test query output](assets/deployment_outputs/smoke_tests/smoke_test_1-2.png)
+* **Data Collection**: Ingests data (`Amazon Books Dataset: books_data.csv`)
+* **Data Cleaning/Feature Engineering**: Dropping nulls using `load_and_preprocess()`
+* **Data Labeling**: N/A - this is an unsupervised learning model
+* **Feature Selection**: Loading data: only load the used features (i.e., 'Title', 'description', 'authors', 'categories', 'ratingsCount', 'image'). The remaining features (i.e., previewLink, publisher, publishedDate, and infoLink) are noise.  This helps
+  streamline data parsing and cleaning, as well as storage management.
+* **Model Training**: *Text frequency-inverse document frequency (TF-IDF)* - vectorizes the text; the corpus is represented as an M x N matrix. The number of titles (M) may differ from size of vocabulary (N); however, the size of the vector computed from each
+  vectorized query (i.e., an 1 x N) must be compatible for matrix-vector multiplication to produce a dot product. Thus, the vector will be transposed to dimensions N x 1 to produce the dot product of M x 1, in which each title will have a score.
+  Titles that are closer together in vector space will have a larger dot product or cosine similarity score. Titles are then sorted in descending order according to their scores so that similar titles are served based on the specified *k*.
+* **Model Evaluation**: When building some recommendations (e.g., *You Might Like*, *Because You Viewed*, *For You*, etc.), the goal is to minimize the distance from a user's favorite title to another title, expressed as ||vt^k - vt^i||. This model uses a leave-one-out with precision@k evaluation method: consider users with 5+ liked titles, hide one title, build a query from the rest, evaluate whether the hidden book returns. Use W&B to sweep across `max_features` and `min_df` hyperparameters--strikes the balance between *memory* and *precision*.
+
+  * Unittests:
+    * `test_recommender.py`
+      * `TestRecommenderFitting`
+      * `TestRecommenderRetrieval`
+      * `TestRecommenderSaveLoad`
+    * test_api.py
+      * `TestEndpointsWithoutModel`
+      * `TestEndpointsWithModel`
+      * `TestRequestValidation`
+
+### `evaluate.py`
+
+Cross-validation Method: Leave-one-out-with-precision@k
+
+Leave-one-out over users with 5-50 liked (rated 4+) in-catalog books: hide one title, build a query from the remaining titles, ask for *k* recommendations, check whether the hidden title returns. Scored against a most-reviewed-titles popularity baseline.
+
+* Model:
+  * Hit rate @ k=10: 0.3350
+  * Precision@k: 0.0335
+* Popularity baseline:
+  * Hit rate @ k=10: 0.0100
+  * Precision@k: 0.0010
+
+Measured over 200 users drawn from a 29,727-user eligible cohort. The 50-book cap excludes a degenerate account (i.e., a bot account) holding 5,351 liked titles. See *Learning lessons* for how to read that 33.5x lift honestly.
+
+**Model Deployment / Model Monitoring**:
+
+* Low-latency
+* Flexible
+* Automatic scalability
+* High Availability & Durability
+
+### Docker
+
+* *Docker* containerization for environmental consistency and accessibility
+
+### Amazon Web Services (AWS)
+
+* *Amazon Elastic Compute Cloud* for deployment and monitoring NoSQL Cloud Database (*Amazon DynamoDB*) | *Note: DynamoDB architecture outlined in `db.py`*
+
+**Launch two EC2 instances:**
+
+* Name:
+  * App host: `recommender-app`
+  * Monitoring host: `recommender-monitor`
+* AMI:
+  * App host: Ubuntu 24.04 or newer
+  * Monitoring host: Ubuntu 24.04 or newer
+* Instance type:
+  * App host: **t3.small** (2 GB)
+  * Monitoring host: t3.micro (1 GB)
+* Storage:
+  * App host: 16 GiB
+  * Monitoring host: 8 GiB
+* Inbound rules:
+  * App host: 22, 8000, 8501
+  * Monitoring host: 22, 8501
+
+The app host needs 2 GB of RAM. The API unpickles a vectorizer holding 1,240,874 vocabulary terms, plus a 50.8 MB matrix and a 165,744-row catalog, inside a container. A 1 GB instance is killed by the OOM reaper partway through loading, and the only
+symptom is a container that exits without a traceback. The monitoring host loads no model and installs no ML libraries, so 1 GB is sufficient there.
+
+### `create_table.py`
+
+Creates the `book_recommender_retrievals` table and its `retrievals_by_date` global secondary index. Idempotent, so it is safe to re-run.
+
+* DynamoDB Implementation:
+  * For this project, one key scans several thousand items (i.e., retrieval logs). Scale would demand implementation of a composite key (partition key: `"PRED#2026-08-07",`sort key: `"2026-08-07T13:22:01Z#<uuid>")`for targeted queries. **Tradeoff**: The simple, single key is optimal for the project at hand. A composite key adds unnecessary complexity.
+  * Timezone in UTC for agnostic time-tracking
+  * Function as a Service (FaaS) - Only pay for what is used
+
+## [Weights and Biases (WandB)](https://wandb.ai/tiburon_0-university-of-denver/projects)
+
+### `promote_model.py`
+
+**Linking**:
+
+* **Supports model lifecycle management & scope promotion**:
+
+  * Enables CLI staging and promotion of model artifacts in the *Registry* (i.e., --list, --alias production)
+* **Supports data lineage**:
+
+  * Alias acts as mutable pointer, enabling changes in production without redeploying the highest-performing artifact.
+    * **Importance**: Respects possibility of **model degradation**, **concept drift**, and **data drift**
+* **Provides naming consistency for artifacts**:
+
+  * **entity**: *tiburon_0-university-of-denver*
+  * **project**: *content-based-book-recommender*
+  * **artifact & version**: *tiburon-book-recommender:version*
+  * **Project Namespace**: *tiburon_0-university-of-denver/content-based-book-recommender/tiburon-book-recommender:v1*)
+
+Promotional decisions are currently rooted in time and space complexity, *cost optimization* (e.g., vocabulary size, model size, latency), pending development of the evaluation harness. So, the structuring enables seamless rollback and shifts in promotion necessitated by various business needs, shifts in priority balance (speed vs. accuracy).
+
+WandB Project Dashboard: [wandb.ai/tiburon_0-university-of-denver/content-based-book-recommender?nw=nwusertiburon_0](https://wandb.ai/tiburon_0-university-of-denver/content-based-book-recommender?nw=nwusertiburon_0)
+
+### `main.py`
+
+* Houses the fastAPI layer, which loads the Production model from the WandB Registry
+* Pydantic schemas for user TextInput validation
+* Provides several *endpoints*:
+  * `/` - returns the artifact
+  * `/health` - confirms API functionality
+  * `/retrieve` - retrieves a specified number of recommendations *k* from a single query
+  * `/retrieve_from_queries` - retrieves a specified number of recommendations *k* from multiple queries
+  * `/feedback` - attaches thumbs up/down to retrievals logged by `/retrieve` endpoint
+  * `/example` - provides example of retrieval functionality by returning a random title from the catalog
+
+---
+
 The monitoring dashboard is a *separate application on a separate server*, exchanging data with the API through the database rather than through files. Docker volumes cannot span hosts, so a shared volume was never an option here--the database **is** the integration point.
 
 | Service | Build context | Port | Reads | Writes |
-| --- | --- | --- | --- | --- |
-| `api` | `api/Dockerfile` | 8000 | W&B registry | DynamoDB |
-| `web` | `web/Dockerfile` | 8501 | `api` over `app_net` | -- |
-| `dash` | `monitoring/Dockerfile` | 8501 | DynamoDB | -- |
+| ------- | ------------- | ---- | ----- | ------ |
+
+* Service: `api`
+  * Build Context: `api/Dockerfile`
+  * Port: 8000
+  * Reads: W&B registry
+  * Writes: DynamoDB
+* Service: `web`
+  * Build Context: `web/Dockerfile`
+  * Port: 8501
+  * Reads: --
+  * Writes: `api` over `app_net`
+* Service: `dash`
+  * Build Context: `monitoring/Dockerfile`
+  * Port: 8501
+  * Reads: DynamoDB
+  * Writes: --
 
 ---
 
@@ -126,13 +189,12 @@ The monitoring dashboard is a *separate application on a separate server*, excha
 
 ### Prerequisites
 
-| Requirement | Notes |
-| --- | --- |
-| Python 3.11 | Matches the Docker images |
-| Docker | Required for the containerized services |
-| W&B account | Free tier--experiment tracking and model registry |
-| AWS account | DynamoDB plus two EC2 instances |
-| ~4 GB disk | The two datasets total roughly 3 GB |
+* Requirement | Notes
+* Python 3.11 | Matches the Docker images
+* Docker | Required for the containerized services
+* W&B account | Free tier--experiment tracking and model registry
+* AWS account | DynamoDB plus two EC2 instances
+* ~4 GB disk | The two datasets total roughly 3 GB
 
 ### 1. Clone and install dependencies
 
@@ -140,21 +202,25 @@ The monitoring dashboard is a *separate application on a separate server*, excha
 git clone https://github.com/Tiburon-0/content-based-book-recommender.git
 cd content-based-book-recommender
 
-conda create -n ml_engineer python=3.11
-conda activate ml_engineer
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ### 2. Obtain the data
 
-Download from [Amazon Books Reviews](https://www.kaggle.com/datasets/mohamedbakhet/amazon-books-reviews?select=books_data.csv) and place both files at the project root:
+* Download from [Amazon Books Reviews](https://www.kaggle.com/datasets/mohamedbakhet/amazon-books-reviews?select=books_data.csv)
+* Place both files at the project root:
+* File: `books_data.csv`
 
-| File | Size | Used by |
-| --- | --- | --- |
-| `books_data.csv` | 181 MB | `train_model.py` -- the catalog |
-| `Books_rating.csv` | 2.86 GB | `evaluate.py` -- the evaluation cohort |
+  * Size: 181 MB
+  * Used By: `train_model.py` -- the catalog
+* File: `Books_rating.csv`
 
-Both are gitignored. `books_data.csv` alone exceeds GitHub's 100 MB per-file limit.
+  * Size: 2.86 GB
+  * Used By: `evaluate.py` -- the evaluation cohort
+
+Both are gitignored to respect GitHub's 100 MB size-limit restrictions.
 
 ### 3. Authenticate
 
@@ -168,13 +234,6 @@ aws configure        # access key, secret, region us-east-1
 ```bash
 python train_model.py
 ```
-
-Loads the catalog, drops rows missing `Title` / `authors` / `categories`, fits TF-IDF over the concatenated text fields, saves the pickle, logs the run and artifact to W&B, links that artifact into the registry as `staging`, then runs a smoke test. Roughly 40 seconds.
-
-Example output:
-
-* ![smoke test eda](assets/deployment_outputs/smoke_tests/smoke_test_1-1.png)
-* ![smoke test query output](assets/deployment_outputs/smoke_tests/smoke_test_1-2.png)
 
 ### 5. Promote to production
 
@@ -192,30 +251,30 @@ python evaluate.py --users 1000 --k 10        # logs a run to W&B
 python evaluate.py --users 200 --no-wandb     # quick local check
 ```
 
-Leave-one-out over users with 5-50 liked (rated 4+) in-catalog books: hide one title, build a query from the remaining titles, ask for *k* recommendations, check whether the hidden title returns. Scored against a most-reviewed-titles popularity baseline.
-
-| | Hit rate @ k=10 | Precision@k |
-| --- | --- | --- |
-| Model | 0.3350 | 0.0335 |
-| Popularity baseline | 0.0100 | 0.0010 |
-
-Measured over 200 users drawn from a 29,727-user eligible cohort. The 50-book cap excludes a degenerate account holding 5,351 liked titles. See *Learning lessons* for how to read that 33.5x lift honestly.
-
 ### 7. Provision the database
 
 ```bash
 python create_table.py
 ```
 
-Creates the `book_recommender_retrievals` table and its `retrievals_by_date` global secondary index. Idempotent, so it is safe to re-run. Index backfill can take several minutes--a slow run is expected, not hung.
+*Note*: Index backfill can take several minutes--a slow run is expected, not hung.
 
 ---
 
 ## Running
 
+Three ways to run the system. They are alternatives, not sequential steps --
+pick the one that matches what you want to do.
+
+| | Use when |
+| --- | --- |
+| Locally, without Docker | Fastest way to hit the endpoints while developing |
+| Locally, with Docker | Verifying the images before deploying |
+| On AWS | The graded deployment |
+
 ### Locally, without Docker
 
-Three terminals:
+Each service in its own terminal:
 
 ```bash
 # API
@@ -242,18 +301,6 @@ All three images build from the **project root** (`docker build -f api/Dockerfil
 
 ### On AWS
 
-**Launch two EC2 instances:**
-
-| | App host | Monitoring host |
-| --- | --- | --- |
-| Name | `recommender-app` | `recommender-monitor` |
-| AMI | Ubuntu 24.04 or newer | Ubuntu 24.04 or newer |
-| Instance type | **t3.small** (2 GB) | t3.micro (1 GB) |
-| Storage | 16 GiB | 8 GiB |
-| Inbound rules | 22, 8000, 8501 | 22, 8501 |
-
-The app host needs 2 GB of RAM. The API unpickles a vectorizer holding 1,240,874 vocabulary terms, plus a 50.8 MB matrix and a 165,744-row catalog, inside a container. A 1 GB instance is killed by the OOM reaper partway through loading, and the only symptom is a container that exits without a traceback. The monitoring host loads no model and installs no ML libraries, so 1 GB is sufficient there.
-
 **Install Docker on both hosts:**
 
 ```bash
@@ -270,7 +317,7 @@ Group membership is read at login, so reconnect before verifying:
 docker run --rm hello-world
 ```
 
-**Grant AWS access.** Attach an IAM instance profile with DynamoDB permissions to *both* instances (*Actions -> Security -> Modify IAM role*). The containers then obtain rotating credentials from instance metadata, and no long-lived credentials touch disk.
+Grant AWS access by Attach an IAM instance profile with DynamoDB permissions to *both* instances (*Actions -> Security -> Modify IAM role*). The containers then obtain rotating credentials from instance metadata, and no long-lived credentials touch disk.
 
 **Deploy the app host:**
 
@@ -303,24 +350,36 @@ No W&B key is required here--this host never loads a model.
 
 ## Interaction
 
-| | URL |
-| --- | --- |
-| API documentation | `http://<APP_HOST_IP>:8000/docs` |
-| Frontend | `http://<APP_HOST_IP>:8501` |
-| Monitoring dashboard | `http://<MONITOR_HOST_IP>:8501` |
+* API documentation:
+  * URL: `http://<APP_HOST_IP>:8000/docs`
+* Frontend:
+  * URL: `http://<APP_HOST_IP>:8501`
+* Monitoring dashboard:
+  * URL: `http://<MONITOR_HOST_IP>:8501`
 
-Send queries through the frontend **before** opening the dashboard. The dashboard reads DynamoDB, so it has nothing to display until the API has logged at least one retrieval.
+Send queries through the frontend *before* launching the dashboard.
+Dependency hierarchy: The dashboard reads DynamoDB, so it has nothing to display until the API has logged at least one retrieval.
 
 ### Endpoints
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/` | Service banner |
-| `GET` | `/health` | Status, `model_loaded`, `served_by`, `error` |
-| `POST` | `/retrieve` | Recommendations for a single query |
-| `POST` | `/retrieve_from_queries` | Recommendations for a list of queries |
-| `POST` | `/feedback` | Attach a thumbs up/down to a logged retrieval |
-| `GET` | `/example` | A random catalog title to try |
+* Endpoint: `/`
+  * Method: `GET`
+  * Purpose: Service banner that returns the artifact
+* Endpoint: `/health`
+  * Method: `GET`
+  * Purpose: Confirms API functionality by returning `status`, `model_loaded`, `served_by`, `error`
+* Endpoint: `/retrieve`
+  * Method: `POST`
+  * Purpose: Retrieves a specified number of recommendations *k* from a single query
+* Endpoint: `/retrieve_from_queries`
+  * Method: `POST`
+  * Purpose: Retrieves a specified number of recommendations *k* from multiple queries
+* Endpoint: `/feedback`
+  * Method: `POST`
+  * Purpose: Attaches thumbs up/down to retrievals logged by `/retrieve` endpoint
+* Endpoint: `/example`
+  * Method: `GET`
+  * Purpose: Provides example of retrieval functionality by returning a random title from the catalog
 
 ### Example requests
 
@@ -373,6 +432,7 @@ make clean-dash    # on the monitoring host
 make clean         # both, when running locally
 ```
 
+**Persistence Where Appropriate**
 Each target removes its containers, images, and network. **Neither touches DynamoDB.** The retrieval history survives container teardown, instance restart, and the end of a session--a direct consequence of integrating through a database rather than a shared volume.
 
 Stop or terminate both EC2 instances afterward. Note that a stopped instance receives a new public IPv4 address when restarted, so the addresses in `assets/deployment_outputs/` are specific to the session in which they were captured.
@@ -401,30 +461,30 @@ Tuning the `min_df` hyperparameter from 2 to 5 decreased the model's vocabulary 
 
 ### The environment is part of the model
 
-Twice this project shipped an artifact and assumed that was the model. Twice it wasn't.
+Twice, this project shipped an artifact and assumed that was the model. Twice, it wasn't.
 
 The container built on EC2 installed scikit-learn 1.9.0 while the pickle had been written under 1.6.1, and every startup logged `InconsistentVersionWarning` on the `TfidfVectorizer`. Results happened to be correct, but sklearn makes no cross-version guarantee for pickled estimators, so I had no basis for claiming the deployed model was the model I trained.
 
-Then CI failed a lint check that passed on my machine. Ruff decides whether an import is first-party or third-party by looking at what exists on disk, and the project root contains a gitignored `wandb/` run-cache directory. Locally `import wandb` looked like one of my own modules; on a clean checkout it looked like a third-party package. Same file, same linter version, opposite verdicts--decided by a directory that is not in the repository.
+Then CI failed a lint check that passed on my machine. Ruff decides whether an import is first-party or third-party by looking at what exists on disk, and the project root contains a gitignored `wandb/` run-cache directory. Locally `import wandb` resembled one of my own modules; on a clean checkout, it looked like a third-party package. Same file, same linter version, opposite verdicts--decided by a directory that is not in the repository.
 
 Neither was found by reading code. One surfaced on deployment, the other on the first CI run. The fix in both cases was to stop inferring and start declaring: pin `scikit-learn==1.6.1`, and set `known-third-party = ["wandb"]`.
 
 ### The database is the integration point
 
-My previous assignment ran two containers on one host and passed a JSON log file between them through a Docker named volume. I began this project reaching for the same pattern and could not make it work, which turned out to be correct--Docker volumes do not span hosts, and the specification requires the monitoring dashboard on a separate server.
+My previous assignment ran two containers on one host and passed a JSON log file between them through a Docker named volume. I began this project reaching for the same pattern and found the pattern to be insufficient in this context, which turned out to be correct--Docker volumes do not span hosts. The specs require the monitoring dashboard to be placed on a separate server.
 
-Removing the volume was the entire architectural difference. DynamoDB became the only shared state: the API writes retrievals, the dashboard reads them, and the two hosts never communicate. That constraint produced a better system than the one I was trying to build. `make clean` on either host now destroys containers without destroying data; under the volume design, teardown deleted every logged prediction.
+Removing the volume proved to be the entire architectural difference. DynamoDB became the only shared state: the API writes retrievals, the dashboard reads them, and the two hosts never communicate. That constraint produced a better system than the one I was trying to build. `make clean` on either host now erases containers without tampering with the data; under the volume design, teardown deleted every logged prediction.
 
 ### A metric you cannot interpret is not a metric
 
-For most of this build, every number I logged was a cost: latency, matrix size, vocabulary size, training time. Not one of them could say whether one run was better than another, which meant promoting a model to production was a decision I had no evidence for.
+For most of this build, every number I logged was a cost: latency, matrix size, vocabulary size, training time. None of these numbers could determine whether a run was better than another; they simply spoke to the model's robustness, which meant promoting a model to production was a decision I previously had no evidence for.
 
-The evaluation harness produced a hit rate of 0.335 at k=10 against a popularity baseline of 0.010--a 33.5x lift. That looks spectacular, and reporting it without qualification would be dishonest in two ways. Only one book is held out per user, so precision@k is mechanically capped at 1/k; hit rate is the interpretable figure. And the lift is large partly because the query is built from the user's other liked books, so same-author and same-series matches dominate. This is closer to author and series retrieval than to modeling taste.
+This was solved via implementation of the evaluation harness, which produced a hit rate of 0.335 at k=10 against a popularity baseline of 0.010--a 33.5x lift. That looks spectacular, and reporting it without qualification would be dishonest in two ways. Only one book is held out per user, so precision@k is mechanically capped at 1/k; hit rate is the interpretable figure. The lift is large partly due to the fact that the query is built from the user's other liked books, so same-author and same-series matches dominate. This is closer to author and series retrieval rather than modeling taste.
 
-### Designing for how it fails
+### Designing for failure points
 
 A recommender fails silently. A misaligned catalog still returns *k* books with plausible scores and raises nothing, so the matrix-to-catalog alignment invariant is written as a test rather than trusted.
 
-The serving path makes the same assumption explicit in three places. `/health` returns 200 even when unhealthy, because a client needs to read the body to learn *why*. Protected endpoints return 503 rather than 404--the endpoint exists, its dependency is missing, and those are different problems. And `log_retrieval` fails soft, printing and returning `None`, so an unreachable database degrades observability without taking down serving.
+The serving path makes the same assumption explicit in three places. `/health` returns 200 even when unhealthy, because a client needs to read the body to learn *why*. Protected endpoints return 503 rather than 404--the endpoint exists, its dependency is missing, and those are different problems. And `log_retrieval` fails gracefully, printing and returning `None`, so an unreachable database degrades observability without taking down serving.
 
 Monitoring required the same care in advance. `latency_ms` cannot be backfilled, so it had to be logged from the first request onward. Feedback is stored as `true` / `false` / `null`, and casting it to a boolean anywhere in the dashboard would silently turn every un-voted retrieval into a thumbs-down, inflating the denominator and destroying the accuracy figure.
