@@ -50,8 +50,7 @@ Example output:
 * **Feature Selection**: Loading data: only load the used features (i.e., 'Title', 'description', 'authors', 'categories', 'ratingsCount', 'image'). The remaining features (i.e., previewLink, publisher, publishedDate, and infoLink) are noise.  This helps
   streamline data parsing and cleaning, as well as storage management.
 * **Model Training**: *Text frequency-inverse document frequency (TF-IDF)* - vectorizes the text; the corpus is represented as an M x N matrix. The number of titles (M) may differ from size of vocabulary (N); however, the size of the vector computed from each
-  vectorized query (i.e., an 1 x N) must be compatible for matrix-vector multiplication to produce a dot product. Thus, the vector will be transposed to dimensions N x 1 to produce the dot product of M x 1, in which each title will have a score.
-  Titles that are closer together in vector space will have a larger dot product or cosine similarity score. Titles are then sorted in descending order according to their scores so that similar titles are served based on the specified *k*.
+  vectorized query (i.e., an 1 x N) must be compatible for matrix-vector multiplication to produce a dot product. Thus, the vector will be transposed to dimensions N x 1 to produce the dot product of M x 1, in which each title will have a score. Titles that are closer together in vector space will have a larger dot product or cosine similarity score. Titles are then sorted in descending order according to their scores so that similar titles are served based on the specified *k*.
 * **Model Evaluation**: When building some recommendations (e.g., *You Might Like*, *Because You Viewed*, *For You*, etc.), the goal is to minimize the distance from a user's favorite title to another title, expressed as ||vt^k - vt^i||. This model uses a leave-one-out with precision@k evaluation method: consider users with 5+ liked titles, hide one title, build a query from the rest, evaluate whether the hidden book returns. Use W&B to sweep across `max_features` and `min_df` hyperparameters--strikes the balance between *memory* and *precision*.
 
   * Unittests:
@@ -112,8 +111,7 @@ Measured over 200 users drawn from a 29,727-user eligible cohort. The 50-book ca
   * App host: 22, 8000, 8501
   * Monitoring host: 22, 8501
 
-The app host needs 2 GB of RAM. The API unpickles a vectorizer holding 1,240,874 vocabulary terms, plus a 50.8 MB matrix and a 165,744-row catalog, inside a container. A 1 GB instance is killed by the OOM reaper partway through loading, and the only
-symptom is a container that exits without a traceback. The monitoring host loads no model and installs no ML libraries, so 1 GB is sufficient there.
+The app host needs 2 GB of RAM. The API unpickles a vectorizer holding 1,240,874 vocabulary terms, plus a 50.8 MB matrix and a 165,744-row catalog, inside a container. A 1 GB instance is killed by the OOM reaper partway through loading, and the only symptom is a container that exits without a traceback. The monitoring host loads no model and installs no ML libraries, so 1 GB is sufficient there.
 
 ### `create_table.py`
 
@@ -263,8 +261,7 @@ python create_table.py
 
 ## Running
 
-Three ways to run the system. They are alternatives, not sequential steps --
-pick the one that matches what you want to do.
+Three ways to run the system. They are alternatives, not sequential steps -- pick the one that matches what you want to do.
 
 | | Use when |
 | --- | --- |
@@ -357,8 +354,7 @@ No W&B key is required here--this host never loads a model.
 * Monitoring dashboard:
   * URL: `http://<MONITOR_HOST_IP>:8501`
 
-Send queries through the frontend *before* launching the dashboard.
-Dependency hierarchy: The dashboard reads DynamoDB, so it has nothing to display until the API has logged at least one retrieval.
+Send queries through the frontend *before* launching the dashboard. Dependency hierarchy: The dashboard reads DynamoDB, so it has nothing to display until the API has logged at least one retrieval.
 
 ### Endpoints
 
@@ -424,6 +420,73 @@ GitHub Actions runs both jobs on every pull request to `main`. Branch protection
 
 ---
 
+## Deployment Evidence
+
+Deployed to two EC2 instances and exercised with live traffic: 32 retrievals logged, 15 carrying user feedback, 87% live accuracy, median latency 156 ms. The lab account is ephemeral, so the addresses captured below are no longer reachable -- a stopped instance receives a new IPv4 address when restarted.
+
+![frontend and monitoring dashboard running on separate EC2 instances](assets/deployment_outputs/dashboard/live_1_frontend_and_dashboard_side_by_side.png)
+
+*Frontend (left) and monitoring dashboard (right), each on its own EC2 instance at its own public address. The two hosts never communicate; the dashboard reads DynamoDB directly.*
+
+<details>
+<summary><b>Monitoring dashboard</b> — latency, target drift, live accuracy</summary>
+
+<br>
+
+![prediction latency over time and recommended category distribution](assets/deployment_outputs/dashboard/live_2_dashboard_latency_and_drift.png)
+
+![user feedback, cumulative accuracy, and model versions serving traffic](assets/deployment_outputs/dashboard/live_3_dashboard_feedback_and_versions.png)
+
+</details>
+
+<details>
+<summary><b>AWS console</b> — instances and prediction logging</summary>
+
+<br>
+
+![EC2 instances running](assets/deployment_outputs/aws/aws_3_ec2_instances_running.png)
+
+![DynamoDB retrievals with query, latency, model version, and feedback](assets/deployment_outputs/aws/aws_2_dynamodb_logged_retrievals.png)
+
+`feedback` holds `true`, `false`, or `null`. The third state means no vote was cast; collapsing it into a boolean would count every unrated retrieval as negative and corrupt the accuracy figure.
+
+</details>
+
+<details>
+<summary><b>Model registry</b> — the artifact the API serves</summary>
+
+<br>
+
+![W&B registry showing v1 with the production alias](assets/deployment_outputs/wandb/wandb_3_registry_production_alias.png)
+
+Version v1 carries the `production` alias. `main.py` resolves that alias at startup and stamps `registry_version`, `source_version`, and `digest` onto every response, so any recommendation is traceable to the exact artifact that produced it.
+
+</details>
+
+<details>
+<summary><b>Continuous integration</b> — lint and tests as required checks</summary>
+
+<br>
+
+![CI status checks required on a pull request](assets/deployment_outputs/github/pull_request_workflow.png)
+
+</details>
+
+<details>
+<summary><b>A known limitation</b> — lexical matching without semantics</summary>
+
+<br>
+
+![victorian similarity false positive](assets/deployment_outputs/dashboard/live_4_limitation_victorian_match.png)
+
+Querying for *victorian detective novels with an unreliable narrator* returns *Victorian Architecture of Iowa* in fourth place. TF-IDF matched the token `victorian` with no notion that the rest of the query made the book irrelevant. This is the weakness of lexical retrieval without semantic representation.
+
+</details>
+
+The complete set -- security groups, Docker installation, API startup and `curl` responses, Swagger, all fifteen frontend queries, and the remaining W&B captures -- is organised in [`assets/deployment_outputs/`](assets/deployment_outputs/) by `aws`, `dashboard`, `github`, `query_tests`, `smoke_tests`, and `wandb`.
+
+---
+
 ## CleanUp
 
 ```bash
@@ -432,8 +495,7 @@ make clean-dash    # on the monitoring host
 make clean         # both, when running locally
 ```
 
-**Persistence Where Appropriate**
-Each target removes its containers, images, and network. **Neither touches DynamoDB.** The retrieval history survives container teardown, instance restart, and the end of a session--a direct consequence of integrating through a database rather than a shared volume.
+**Persistence Where Appropriate** Each target removes its containers, images, and network. **Neither touches DynamoDB.** The retrieval history survives container teardown, instance restart, and the end of a session--a direct consequence of integrating through a database rather than a shared volume.
 
 Stop or terminate both EC2 instances afterward. Note that a stopped instance receives a new public IPv4 address when restarted, so the addresses in `assets/deployment_outputs/` are specific to the session in which they were captured.
 
