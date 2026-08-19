@@ -424,6 +424,79 @@ GitHub Actions runs both jobs on every pull request to `main`. Branch protection
 
 ---
 
+## Deployment Evidence
+
+The system below was deployed and exercised on AWS. The lab account is ephemeral,
+so the public addresses in these captures are no longer live -- a stopped instance
+receives a new IPv4 address when restarted.
+
+### Two applications, two servers
+
+The frontend on the app host and the monitoring dashboard on the monitoring host,
+each at its own public address. The dashboard reads DynamoDB directly; the two
+hosts never communicate.
+
+![frontend and dashboard running on separate EC2 instances](assets/deployment_outputs/dashboard/live_1_frontend_and_dashboard_side_by_side.png)
+
+### Monitoring in production
+
+Prediction latency over time and the recommended-category distribution, computed
+from 32 logged retrievals.
+
+![latency over time and category drift](assets/deployment_outputs/dashboard/live_2_dashboard_latency_and_drift.png)
+
+Live accuracy from user feedback, and the registry version serving traffic.
+
+![user feedback and model versions](assets/deployment_outputs/dashboard/live_3_dashboard_feedback_and_versions.png)
+
+### Prediction logging
+
+Every retrieval written to DynamoDB with its query, latency, result count, model
+version, and the feedback attached to it. `feedback` holds `true`, `false`, or
+`null` -- the third state means no vote was cast, and collapsing it into a boolean
+would corrupt the accuracy figure.
+
+![DynamoDB logged retrievals](assets/deployment_outputs/aws/aws_2_dynamodb_logged_retrievals.png)
+
+### Model registry
+
+Version v1 carrying the `production` alias -- the artifact the API pulls at startup.
+
+![W&B registry showing the production alias](assets/deployment_outputs/wandb/wandb_3_registry_production_alias.png)
+
+### Continuous integration
+
+Lint and tests as required status checks on a pull request.
+
+![CI checks required on a pull request](assets/deployment_outputs/github/pull_request_workflow.png)
+
+### A limitation, stated plainly
+
+Querying for *victorian detective novels with an unreliable narrator* returns
+*Victorian Architecture of Iowa* in fourth place. TF-IDF matched the token
+`victorian` with no notion that the rest of the query made that book irrelevant.
+This is the known weakness of lexical retrieval without semantic representation,
+and it is the argument for the TruncatedSVD arm described in *Design Considerations*.
+
+![victorian similarity false positive](assets/deployment_outputs/dashboard/live_4_limitation_victorian_match.png)
+
+### Everything else
+
+The full set -- AWS console, security groups, Docker installation, API startup and
+`curl` responses, Swagger, all fifteen frontend queries, and the remaining W&B
+captures -- is in [`assets/deployment_outputs/`](assets/deployment_outputs/):
+
+| Folder | Contents |
+| --- | --- |
+| [`aws/`](assets/deployment_outputs/aws/) | EC2 instances, security groups, DynamoDB, Docker setup, API responses |
+| [`dashboard/`](assets/deployment_outputs/dashboard/) | Monitoring dashboard and the live side-by-side deployment |
+| [`github/`](assets/deployment_outputs/github/) | Pull request checks and merge |
+| [`query_tests/`](assets/deployment_outputs/query_tests/) | Fifteen frontend queries with recommendations and feedback |
+| [`smoke_tests/`](assets/deployment_outputs/smoke_tests/) | Training smoke test output |
+| [`wandb/`](assets/deployment_outputs/wandb/) | Registry versions, promotion, and run metrics |
+
+---
+
 ## CleanUp
 
 ```bash
