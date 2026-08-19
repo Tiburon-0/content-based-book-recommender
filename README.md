@@ -426,74 +426,83 @@ GitHub Actions runs both jobs on every pull request to `main`. Branch protection
 
 ## Deployment Evidence
 
-The system below was deployed and exercised on AWS. The lab account is ephemeral,
-so the public addresses in these captures are no longer live -- a stopped instance
-receives a new IPv4 address when restarted.
+Deployed to two EC2 instances and exercised with live traffic: 32 retrievals
+logged, 15 carrying user feedback, 87% live accuracy, median latency 156 ms.
+The lab account is ephemeral, so the addresses captured below are no longer
+reachable -- a stopped instance receives a new IPv4 address when restarted.
 
-### Two applications, two servers
+![frontend and monitoring dashboard running on separate EC2 instances](assets/deployment_outputs/dashboard/live_1_frontend_and_dashboard_side_by_side.png)
 
-The frontend on the app host and the monitoring dashboard on the monitoring host,
-each at its own public address. The dashboard reads DynamoDB directly; the two
-hosts never communicate.
+*Frontend (left) and monitoring dashboard (right), each on its own EC2 instance
+at its own public address. The two hosts never communicate; the dashboard reads
+DynamoDB directly.*
 
-![frontend and dashboard running on separate EC2 instances](assets/deployment_outputs/dashboard/live_1_frontend_and_dashboard_side_by_side.png)
+<details>
+<summary><b>Monitoring dashboard</b> — latency, target drift, live accuracy</summary>
 
-### Monitoring in production
+<br>
 
-Prediction latency over time and the recommended-category distribution, computed
-from 32 logged retrievals.
+![prediction latency over time and recommended category distribution](assets/deployment_outputs/dashboard/live_2_dashboard_latency_and_drift.png)
 
-![latency over time and category drift](assets/deployment_outputs/dashboard/live_2_dashboard_latency_and_drift.png)
+![user feedback, cumulative accuracy, and model versions serving traffic](assets/deployment_outputs/dashboard/live_3_dashboard_feedback_and_versions.png)
 
-Live accuracy from user feedback, and the registry version serving traffic.
+</details>
 
-![user feedback and model versions](assets/deployment_outputs/dashboard/live_3_dashboard_feedback_and_versions.png)
+<details>
+<summary><b>AWS console</b> — instances and prediction logging</summary>
 
-### Prediction logging
+<br>
 
-Every retrieval written to DynamoDB with its query, latency, result count, model
-version, and the feedback attached to it. `feedback` holds `true`, `false`, or
-`null` -- the third state means no vote was cast, and collapsing it into a boolean
-would corrupt the accuracy figure.
+![EC2 instances running](assets/deployment_outputs/aws/aws_3_ec2_instances_running.png)
 
-![DynamoDB logged retrievals](assets/deployment_outputs/aws/aws_2_dynamodb_logged_retrievals.png)
+![DynamoDB retrievals with query, latency, model version, and feedback](assets/deployment_outputs/aws/aws_2_dynamodb_logged_retrievals.png)
 
-### Model registry
+`feedback` holds `true`, `false`, or `null`. The third state means no vote was
+cast; collapsing it into a boolean would count every unrated retrieval as
+negative and corrupt the accuracy figure.
 
-Version v1 carrying the `production` alias -- the artifact the API pulls at startup.
+</details>
 
-![W&B registry showing the production alias](assets/deployment_outputs/wandb/wandb_3_registry_production_alias.png)
+<details>
+<summary><b>Model registry</b> — the artifact the API serves</summary>
 
-### Continuous integration
+<br>
 
-Lint and tests as required status checks on a pull request.
+![W&B registry showing v1 with the production alias](assets/deployment_outputs/wandb/wandb_3_registry_production_alias.png)
 
-![CI checks required on a pull request](assets/deployment_outputs/github/pull_request_workflow.png)
+Version v1 carries the `production` alias. `main.py` resolves that alias at
+startup and stamps `registry_version`, `source_version`, and `digest` onto every
+response, so any recommendation is traceable to the exact artifact that produced it.
 
-### A limitation, stated plainly
+</details>
 
-Querying for *victorian detective novels with an unreliable narrator* returns
-*Victorian Architecture of Iowa* in fourth place. TF-IDF matched the token
-`victorian` with no notion that the rest of the query made that book irrelevant.
-This is the known weakness of lexical retrieval without semantic representation,
-and it is the argument for the TruncatedSVD arm described in *Design Considerations*.
+<details>
+<summary><b>Continuous integration</b> — lint and tests as required checks</summary>
+
+<br>
+
+![CI status checks required on a pull request](assets/deployment_outputs/github/pull_request_workflow.png)
+
+</details>
+
+<details>
+<summary><b>A known limitation</b> — lexical matching without semantics</summary>
+
+<br>
 
 ![victorian similarity false positive](assets/deployment_outputs/dashboard/live_4_limitation_victorian_match.png)
 
-### Everything else
+Querying for *victorian detective novels with an unreliable narrator* returns
+*Victorian Architecture of Iowa* in fourth place. TF-IDF matched the token
+`victorian` with no notion that the rest of the query made the book irrelevant.
+This is the weakness of lexical retrieval without semantic representation.
 
-The full set -- AWS console, security groups, Docker installation, API startup and
-`curl` responses, Swagger, all fifteen frontend queries, and the remaining W&B
-captures -- is in [`assets/deployment_outputs/`](assets/deployment_outputs/):
+</details>
 
-| Folder | Contents |
-| --- | --- |
-| [`aws/`](assets/deployment_outputs/aws/) | EC2 instances, security groups, DynamoDB, Docker setup, API responses |
-| [`dashboard/`](assets/deployment_outputs/dashboard/) | Monitoring dashboard and the live side-by-side deployment |
-| [`github/`](assets/deployment_outputs/github/) | Pull request checks and merge |
-| [`query_tests/`](assets/deployment_outputs/query_tests/) | Fifteen frontend queries with recommendations and feedback |
-| [`smoke_tests/`](assets/deployment_outputs/smoke_tests/) | Training smoke test output |
-| [`wandb/`](assets/deployment_outputs/wandb/) | Registry versions, promotion, and run metrics |
+The complete set -- security groups, Docker installation, API startup and `curl`
+responses, Swagger, all fifteen frontend queries, and the remaining W&B captures --
+is organised in [`assets/deployment_outputs/`](assets/deployment_outputs/) by `aws`, `dashboard`, `github`,
+`query_tests`, `smoke_tests`, and `wandb`.
 
 ---
 
