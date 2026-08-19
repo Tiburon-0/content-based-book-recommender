@@ -12,7 +12,10 @@ credentials
 # the model lives in the w&b registry, not in git
 *.pkl
 artifacts/
-wandb/
+# root-anchored: this is the W&B run cache at the project root.
+# WITHOUT the leading slash it also matched assets/deployment_outputs/wandb/
+# and silently kept the registry screenshots out of the repo.
+/wandb/
 
 # --------[PYTHON NOISE]--------
 __pycache__/
